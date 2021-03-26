@@ -393,3 +393,44 @@ func TestServer_ListAssignments_CanFilterPubkeysIndices_WithPagination(t *testin
 
 	assert.DeepEqual(t, wantedRes, res, "Did not receive wanted assignments")
 }
+
+func TestServer_GetProposerList(t *testing.T) {
+	helpers.ClearCache()
+	db := dbTest.SetupDB(t)
+
+	ctx := context.Background()
+	count := 100
+	validators := make([]*ethpb.Validator, 0, count)
+	withdrawCreds := make([]byte, 32)
+	for i := 0; i < count; i++ {
+		pubKey := make([]byte, params.BeaconConfig().BLSPubkeyLength)
+		binary.LittleEndian.PutUint64(pubKey, uint64(i))
+		val := &ethpb.Validator{
+			PublicKey:             pubKey,
+			WithdrawalCredentials: withdrawCreds,
+			ExitEpoch:             params.BeaconConfig().FarFutureEpoch,
+		}
+		validators = append(validators, val)
+	}
+
+	blk := testutil.NewBeaconBlock().Block
+	blockRoot, err := blk.HashTreeRoot()
+	require.NoError(t, err)
+	s, err := testutil.NewBeaconState()
+	require.NoError(t, err)
+	require.NoError(t, s.SetValidators(validators))
+	require.NoError(t, db.SaveState(ctx, s, blockRoot))
+	require.NoError(t, db.SaveGenesisBlockRoot(ctx, blockRoot))
+
+	bs := &Server{
+		BeaconDB: db,
+		FinalizationFetcher: &mock.ChainService{
+			FinalizedCheckPoint: &ethpb.Checkpoint{
+				Epoch: 0,
+			},
+		},
+		GenesisTimeFetcher: &mock.ChainService{},
+		StateGen:           stategen.New(db),
+	}
+	require.NotEqual(t, bs, nil)
+}
