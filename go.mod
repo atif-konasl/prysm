@@ -132,4 +132,4 @@ replace github.com/json-iterator/go => github.com/prestonvanloon/go v1.1.7-0.201
 
 replace github.com/prysmaticlabs/prysm => github.com/lukso-network/vanguard-consensus-engine v1.3.3
 
-replace github.com/prysmaticlabs/ethereumapis => github.com/lukso-network/vanguard-apis v0.0.0-20210326133834-299effe02137
+replace github.com/prysmaticlabs/ethereumapis => github.com/lukso-network/vanguard-apis v0.0.0-20210331083856-a569864eb9aa

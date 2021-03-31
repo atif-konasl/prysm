@@ -394,7 +394,7 @@ func TestServer_ListAssignments_CanFilterPubkeysIndices_WithPagination(t *testin
 	assert.DeepEqual(t, wantedRes, res, "Did not receive wanted assignments")
 }
 
-func TestServer_GetProposerList(t *testing.T) {
+func TestServer_NextEpochProposerList(t *testing.T) {
 	helpers.ClearCache()
 	db := dbTest.SetupDB(t)
 
@@ -409,6 +409,8 @@ func TestServer_GetProposerList(t *testing.T) {
 			PublicKey:             pubKey,
 			WithdrawalCredentials: withdrawCreds,
 			ExitEpoch:             params.BeaconConfig().FarFutureEpoch,
+			ActivationEpoch:       0,
+			EffectiveBalance:      params.BeaconConfig().MaxEffectiveBalance,
 		}
 		validators = append(validators, val)
 	}
