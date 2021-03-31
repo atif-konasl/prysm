@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/binary"
 	"fmt"
+	ptypes "github.com/gogo/protobuf/types"
 	"strconv"
 	"testing"
 
@@ -397,27 +398,26 @@ func TestServer_ListAssignments_CanFilterPubkeysIndices_WithPagination(t *testin
 func TestServer_NextEpochProposerList(t *testing.T) {
 	helpers.ClearCache()
 	db := dbTest.SetupDB(t)
-
 	ctx := context.Background()
 	count := 100
 	validators := make([]*ethpb.Validator, 0, count)
-	withdrawCreds := make([]byte, 32)
 	for i := 0; i < count; i++ {
 		pubKey := make([]byte, params.BeaconConfig().BLSPubkeyLength)
+		withdrawalCred := make([]byte, 32)
 		binary.LittleEndian.PutUint64(pubKey, uint64(i))
-		val := &ethpb.Validator{
+		validators = append(validators, &ethpb.Validator{
 			PublicKey:             pubKey,
-			WithdrawalCredentials: withdrawCreds,
+			WithdrawalCredentials: withdrawalCred,
 			ExitEpoch:             params.BeaconConfig().FarFutureEpoch,
-			ActivationEpoch:       0,
 			EffectiveBalance:      params.BeaconConfig().MaxEffectiveBalance,
-		}
-		validators = append(validators, val)
+			ActivationEpoch:       0,
+		})
 	}
 
 	blk := testutil.NewBeaconBlock().Block
 	blockRoot, err := blk.HashTreeRoot()
 	require.NoError(t, err)
+
 	s, err := testutil.NewBeaconState()
 	require.NoError(t, err)
 	require.NoError(t, s.SetValidators(validators))
@@ -426,6 +426,9 @@ func TestServer_NextEpochProposerList(t *testing.T) {
 
 	bs := &Server{
 		BeaconDB: db,
+		HeadFetcher: &mock.ChainService{
+			State: s,
+		},
 		FinalizationFetcher: &mock.ChainService{
 			FinalizedCheckPoint: &ethpb.Checkpoint{
 				Epoch: 0,
@@ -434,5 +437,8 @@ func TestServer_NextEpochProposerList(t *testing.T) {
 		GenesisTimeFetcher: &mock.ChainService{},
 		StateGen:           stategen.New(db),
 	}
-	require.NotEqual(t, bs, nil)
+
+	_, err = bs.NextEpochProposerList(ctx, &ptypes.Empty{})
+	require.NoError(t, err)
+	//assert.Equal(t, 32, assignments.Assignments)
 }
