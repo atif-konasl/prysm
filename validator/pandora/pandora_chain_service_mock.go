@@ -111,7 +111,7 @@ func (api *mockPandoraService) SubmitWorkBLS(nonce types.BlockNonce, hash common
 	if block.Hash() != hash {
 		return false
 	}
-	if len(blsSignature) != 192 {
+	if len(blsSignature) != 194 {
 		return false
 	}
 	return true
