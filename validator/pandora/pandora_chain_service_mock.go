@@ -106,12 +106,12 @@ func (api *mockPandoraService) GetWork() ([4]string, error) {
 }
 
 // SubmitWork is a mock api which returns a boolean status
-func (api *mockPandoraService) SubmitWorkBLS(nonce types.BlockNonce, hash common.Hash, digest [96]byte) bool {
+func (api *mockPandoraService) SubmitWorkBLS(nonce types.BlockNonce, hash common.Hash, blsSignature string) bool {
 	block := getDummyBlock()
 	if block.Hash() != hash {
 		return false
 	}
-	if len(digest) != 96 {
+	if len(blsSignature) != 192 {
 		return false
 	}
 	return true

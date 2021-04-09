@@ -96,9 +96,9 @@ func (oc *PandoraClient) SubmitShardBlockHeader(ctx context.Context, blockNonce 
 	sig [96]byte) (bool, error) {
 
 	nonecHex := types.EncodeNonce(blockNonce)
-
+	sigHex := common.Bytes2Hex(sig[:])
 	var status bool
-	if err := oc.c.CallContext(ctx, &status, "eth_submitWorkBLS", nonecHex, headerHash, sig); err != nil {
+	if err := oc.c.CallContext(ctx, &status, "eth_submitWorkBLS", nonecHex, headerHash, sigHex); err != nil {
 		return false, errors.Wrap(err, "Got error when calls to eth_submitWork api")
 	}
 	return status, nil
