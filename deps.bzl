@@ -2576,13 +2576,6 @@ def prysm_deps():
         version = "v0.0.0-20210219172114-1da477c09a06",
     )
     go_repository(
-        name = "com_github_prysmaticlabs_ethereumapis",
-        build_file_generation = "off",
-        importpath = "github.com/prysmaticlabs/ethereumapis",
-        sum = "h1:Ys0W+CbcJOVALCmGzmLm3rUmf4Be571T+0vglJNAU10=",
-        version = "v0.0.0-20210326223848-88341aec74a9",
-    )
-    go_repository(
         name = "com_github_prysmaticlabs_go_bitfield",
         importpath = "github.com/prysmaticlabs/go-bitfield",
         sum = "h1:18+Qqobq3HAUY0hgIhPGSqmLFnaLLocemmU7+Sj2aYQ=",
@@ -3697,6 +3690,24 @@ def prysm_deps():
         # branch should be updated from time to time with the latest go-ethereum
         # code.
         remote = "https://github.com/lukso-network/vanguard-consensus-engine",  # keep
+        replace = None,  # keep
+        sum = None,  # keep
+        vcs = "git",  # keep
+        version = None,  # keep
+    )
+
+    # Note: It is required to define com_github_prysmaticlabs_ethereumapis like this for some reason...
+    # Note: The keep directives help gazelle leave this alone.
+    go_repository(
+        name = "com_github_prysmaticlabs_ethereumapis",
+        commit = "ee8ec3c2f19e7e04e2fd2a6c2eccd3c8bad34521",  # keep
+        importpath = "github.com/prysmaticlabs/ethereumapis",  # keep
+        # Note: go-ethereum is not bazel-friendly with regards to cgo. We have a
+        # a fork that has resolved these issues by disabling HID/USB support and
+        # some manual fixes for c imports in the crypto package. This is forked
+        # branch should be updated from time to time with the latest go-ethereum
+        # code.
+        remote = "https://github.com/lukso-network/vanguard-apis",  # keep
         replace = None,  # keep
         sum = None,  # keep
         vcs = "git",  # keep

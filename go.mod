@@ -84,7 +84,7 @@ require (
 	github.com/prometheus/procfs v0.3.0 // indirect
 	github.com/prometheus/tsdb v0.10.0 // indirect
 	github.com/prysmaticlabs/eth2-types v0.0.0-20210219172114-1da477c09a06
-	github.com/prysmaticlabs/ethereumapis v0.0.0-20210311175904-cf9f64632dd4
+	github.com/prysmaticlabs/ethereumapis v0.0.0-00010101000000-000000000000
 	github.com/prysmaticlabs/go-bitfield v0.0.0-20210202205921-7fcea7c45dc8
 	github.com/prysmaticlabs/prombbolt v0.0.0-20210126082820-9b7adba6db7c
 	github.com/rs/cors v1.7.0
@@ -131,4 +131,6 @@ replace github.com/ethereum/go-ethereum => github.com/prysmaticlabs/bazel-go-eth
 
 replace github.com/json-iterator/go => github.com/prestonvanloon/go v1.1.7-0.20190722034630-4f2e55fcf87b
 
-replace github.com/prysmaticlabs/prysm => github.com/lukso-network/vanguard-consensus-engine v0.0.1-0.20210322204411-9ca9f8244a4f
+replace github.com/prysmaticlabs/prysm => github.com/lukso-network/vanguard-consensus-engine v1.3.3
+
+replace github.com/prysmaticlabs/ethereumapis => github.com/lukso-network/vanguard-apis v0.0.0-20210401140126-ee8ec3c2f19e
