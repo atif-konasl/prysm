@@ -2,6 +2,7 @@ package helpers
 
 import (
 	"fmt"
+	"github.com/prysmaticlabs/prysm/beacon-chain/cache"
 	"reflect"
 	"strconv"
 	"testing"
@@ -658,4 +659,100 @@ func TestPrecomputeProposerIndices_Ok(t *testing.T) {
 		wantedProposerIndices = append(wantedProposerIndices, index)
 	}
 	assert.DeepEqual(t, wantedProposerIndices, proposerIndices, "Did not precompute proposer indices correctly")
+}
+
+// TestProposerAssignments_WithCache test caching proposer indices
+func TestProposerAssignments_WithCache(t *testing.T) {
+	// Initialize test with 256 validators, each slot and each index gets 4 validators.
+	validators := make([]*ethpb.Validator, 4*params.BeaconConfig().SlotsPerEpoch)
+	for i := 0; i < len(validators); i++ {
+		validators[i] = &ethpb.Validator{
+			ActivationEpoch: 0,
+			ExitEpoch:       params.BeaconConfig().FarFutureEpoch,
+		}
+	}
+	state, err := stateV0.InitializeFromProto(&pb.BeaconState{
+		Validators:  validators,
+		Slot:        2 * params.BeaconConfig().SlotsPerEpoch, // epoch 2
+		StateRoots:  make([][]byte, 96),
+		RandaoMixes: make([][]byte, params.BeaconConfig().EpochsPerHistoricalVector),
+	})
+	require.NoError(t, err)
+	ClearCache()
+	stateRoots := make([][]byte, 100)
+	proposerIndices := make([]types.ValidatorIndex, 32)
+
+	for i := 0; i < len(state.StateRoots()); i++ {
+		b := [32]byte{'A'}
+		stateRoots[i] = b[:]
+		if i == 63 {
+			for idx := uint(0); idx < uint(params.BeaconConfig().SlotsPerEpoch); idx++ {
+				proposerIndices[idx] = types.ValidatorIndex(idx)
+			}
+			item := &cache.ProposerIndices{BlockRoot: b, ProposerIndices: proposerIndices}
+			proposerIndicesCache.AddProposerIndices(item)
+		}
+	}
+	state.SetStateRoots(stateRoots)
+	nextEpoch := types.Epoch(3)
+	startSlot, err := StartSlot(nextEpoch)
+	require.NoError(t, err)
+	endSlot := startSlot + params.BeaconConfig().SlotsPerEpoch
+	expectedProposerIndexToSlots := make(map[types.ValidatorIndex][]types.Slot, params.BeaconConfig().SlotsPerEpoch)
+	var validatorIndex types.ValidatorIndex
+	validatorIndex = 0
+
+	for slot := startSlot; slot < endSlot; slot++ {
+		expectedProposerIndexToSlots[validatorIndex] = append(expectedProposerIndexToSlots[validatorIndex], slot)
+		validatorIndex++
+	}
+	actualProposerIndexToSlots, err := ProposerAssignments(state, nextEpoch)
+	require.NoError(t, err, "Failed to determine proposer indices")
+	assert.DeepEqual(t, expectedProposerIndexToSlots, actualProposerIndexToSlots)
+}
+
+func TestProposerAssignments_WithoutCache(t *testing.T) {
+	// Initialize test with 256 validators, each slot and each index gets 4 validators.
+	validators := make([]*ethpb.Validator, 4*params.BeaconConfig().SlotsPerEpoch)
+	for i := 0; i < len(validators); i++ {
+		validators[i] = &ethpb.Validator{
+			ActivationEpoch: 0,
+			ExitEpoch:       params.BeaconConfig().FarFutureEpoch,
+		}
+	}
+	state, err := stateV0.InitializeFromProto(&pb.BeaconState{
+		Validators:  validators,
+		Slot:        2 * params.BeaconConfig().SlotsPerEpoch, // epoch 2
+		StateRoots:  make([][]byte, 96),
+		RandaoMixes: make([][]byte, params.BeaconConfig().EpochsPerHistoricalVector),
+	})
+	require.NoError(t, err)
+	ClearCache()
+	stateRoots := make([][]byte, 100)
+	for i := 0; i < len(state.StateRoots()); i++ {
+		b := [32]byte{'A'}
+		stateRoots[i] = b[:]
+	}
+	state.SetStateRoots(stateRoots)
+	nextEpoch := types.Epoch(3)
+	var blockRoot [32]byte
+	copy(blockRoot[:], state.StateRoots()[63])
+	proposerIndicesBeforCaching, err := proposerIndicesCache.ProposerIndices(blockRoot)
+	require.NoError(t, err)
+	// Proposer indices before caching should be zero
+	require.Equal(t, len(proposerIndicesBeforCaching), 0)
+
+	proposerIndexToSlots, err := ProposerAssignments(state, nextEpoch)
+	require.NoError(t, err)
+	proposerIndicesAfterCaching, err := proposerIndicesCache.ProposerIndices(blockRoot)
+	require.NoError(t, err)
+	require.Equal(t, len(proposerIndicesAfterCaching), 32)
+
+	actualProposerIndices := make([]types.ValidatorIndex, 32)
+	for index, slots := range proposerIndexToSlots {
+		for _, slot := range slots {
+			actualProposerIndices[slot-96] = index
+		}
+	}
+	require.DeepEqual(t, proposerIndicesAfterCaching, actualProposerIndices)
 }
