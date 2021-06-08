@@ -44,8 +44,27 @@ jobs:
 
       - name: Build
         # Use blst tag to allow go and bazel builds for blst.
-        run: go build -v --tags=blst_enabled ./...
+        run: |
+          mkdir builds &&
+          go build -v --tags=blst_enabled -o ./builds ./...
 
-# Tests run via Bazel for now...
+#      # Tests run via Bazel for now...
 #      - name: Test
-#        run: go test -v ./...
+#        run: go test -v --tags=develop,blst_enabled ./...
+
+      - name: Push tag
+        id: pushtag
+        uses: mathieudutour/github-tag-action@v5.5
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ steps.pushtag.outputs.new_tag }}
+          files: |
+            ./builds/beacon-chain
+            ./builds/validator
+        env:
+          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
+
