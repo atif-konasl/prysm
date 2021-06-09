@@ -132,7 +132,6 @@ func TestService_ReceiveBlock(t *testing.T) {
 				AttPool:       attestations.NewPool(),
 				ExitPool:      voluntaryexits.NewPool(),
 				StateNotifier: &blockchainTesting.MockStateNotifier{RecordEvents: true},
-				BlockNotifier: &blockchainTesting.MockBlockNotifier{},
 				StateGen:      stategen.New(beaconDB),
 			}
 			s, err := NewService(ctx, cfg)
@@ -174,7 +173,6 @@ func TestService_ReceiveBlockUpdateHead(t *testing.T) {
 		AttPool:       attestations.NewPool(),
 		ExitPool:      voluntaryexits.NewPool(),
 		StateNotifier: &blockchainTesting.MockStateNotifier{RecordEvents: true},
-		BlockNotifier: &blockchainTesting.MockBlockNotifier{},
 		StateGen:      stategen.New(beaconDB),
 	}
 	s, err := NewService(ctx, cfg)
@@ -256,7 +254,6 @@ func TestService_ReceiveBlockBatch(t *testing.T) {
 					genesisBlockRoot,
 				),
 				StateNotifier: &blockchainTesting.MockStateNotifier{RecordEvents: true},
-				BlockNotifier: &blockchainTesting.MockBlockNotifier{},
 				StateGen:      stategen.New(beaconDB),
 			}
 			s, err := NewService(ctx, cfg)

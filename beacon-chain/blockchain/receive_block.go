@@ -44,6 +44,19 @@ func (s *Service) ReceiveBlock(ctx context.Context, block *ethpb.SignedBeaconBlo
 		return err
 	}
 
+	if s.enableVanguardNode {
+		// Send the incoming block acknowledge to orchestrator and store the pending block to cache
+		if err := s.publishAndStorePendingBlock(ctx, blockCopy.Block); err != nil {
+			log.WithError(err).Warn("could not publish un-confirmed block or cache it")
+			return err
+		}
+
+		// Wait for final confirmation from orchestrator node
+		if err := s.waitForConfirmationBlock(ctx, blockCopy); err != nil {
+			return err
+		}
+	}
+
 	// Update and save head block after fork choice.
 	if !featureconfig.Get().UpdateHeadTimely {
 		if err := s.updateHead(ctx, s.getJustifiedBalances()); err != nil {
@@ -97,6 +110,19 @@ func (s *Service) ReceiveBlockBatch(ctx context.Context, blocks []*ethpb.SignedB
 		err := errors.Wrap(err, "could not process block in batch")
 		traceutil.AnnotateError(span, err)
 		return err
+	}
+
+	if s.enableVanguardNode {
+		// Send the incoming block acknowledge to orchestrator and store the pending block to cache
+		if err := s.publishAndStorePendingBlockBatch(ctx, blocks); err != nil {
+			log.WithError(err).Warn("could not publish un-confirmed batch of block or cache it")
+			return err
+		}
+
+		// Wait for final confirmation from orchestrator node
+		if err := s.waitForConfirmationsBlockBatch(ctx, blocks); err != nil {
+			return err
+		}
 	}
 
 	for i, b := range blocks {

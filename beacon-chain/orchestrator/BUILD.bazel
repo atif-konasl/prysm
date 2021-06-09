@@ -2,7 +2,7 @@ load("@prysm//tools/go:def.bzl", "go_library")
 load("@io_bazel_rules_go//go:def.bzl", "go_test")
 
 go_library(
-    name = "orchestrator",
+    name = "go_default_library",
     srcs = [
             "client.go",
             "log.go",
@@ -21,7 +21,7 @@ go_library(
 )
 
 go_test(
-    name = "orchestrator_test",
+    name = "go_default_test",
     srcs = [
             "client_test.go",
     ],
