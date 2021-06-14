@@ -166,4 +166,14 @@ var (
 		Usage: "Sets the maximum number of headers that a deposit log query can fetch.",
 		Value: uint64(1000),
 	}
+	// Network defines a bool flag which is required to run vanguard node
+	Network = &cli.BoolFlag{
+		Name:  "lukso-network",
+		Usage: "Runs the lukso vanguard node. This vanguard node may communicate with pandora and orchestrator node",
+	}
+	// OrcRpcProviderFlag defines a orchestrator node RPC endpoint
+	OrcRpcProviderFlag = &cli.StringFlag{
+		Name:  "orc-http-provider",
+		Usage: "A orchestrator string rpc endpoint. This is our orchestrator client http endpoint.",
+	}
 )
