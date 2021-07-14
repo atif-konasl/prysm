@@ -10,6 +10,7 @@ import (
 	"google.golang.org/grpc/status"
 )
 
+// TODO- Need to add from slot number for getting previous blocks from chain
 // StreamNewPendingBlocks to orchestrator client every single time an unconfirmed block is received by the beacon node.
 func (bs *Server) StreamNewPendingBlocks(empty *ptypes.Empty, stream ethpb.BeaconChain_StreamNewPendingBlocksServer) error {
 	unConfirmedblocksChannel := make(chan *feed.Event, 1)

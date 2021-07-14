@@ -59,10 +59,14 @@ type Server struct {
 	ExitPool               voluntaryexits.PoolManager
 	BlockReceiver          blockchain.BlockReceiver
 	MockEth1Votes          bool
+	EnableVanguardNode     bool // vanguard: vanguard chain enable flag
 	Eth1BlockFetcher       powchain.POWBlockFetcher
 	PendingDepositsFetcher depositcache.PendingDepositsFetcher
 	OperationNotifier      opfeed.Notifier
 	StateGen               *stategen.State
+
+	// Vanguard: pending blocks cache
+	PendingQueueFetcher blockchain.PendingQueueFetcher
 }
 
 // WaitForActivation checks if a validator public key exists in the active validator registry of the current

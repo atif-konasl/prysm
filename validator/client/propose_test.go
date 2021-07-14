@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/hex"
 	"errors"
-	"github.com/ethereum/go-ethereum/common"
+	"github.com/prysmaticlabs/prysm/shared/van_mock"
 	"strings"
 	"testing"
 	"time"
@@ -28,10 +28,11 @@ import (
 )
 
 type mocks struct {
-	validatorClient *mock.MockBeaconNodeValidatorClient
-	nodeClient      *mock.MockNodeClient
-	signExitFunc    func(context.Context, *validatorpb.SignRequest) (bls.Signature, error)
-	pandoraService  *mock.MockPandoraService
+	validatorClient   *mock.MockBeaconNodeValidatorClient
+	nodeClient        *mock.MockNodeClient
+	signExitFunc      func(context.Context, *validatorpb.SignRequest) (bls.Signature, error)
+	pandoraService    *van_mock.MockPandoraService
+	beaconChainClient *mock.MockBeaconChainClient
 }
 
 type mockSignature struct{}
@@ -65,7 +66,8 @@ func setup(t *testing.T) (*validator, *mocks, bls.SecretKey, func()) {
 		signExitFunc: func(ctx context.Context, req *validatorpb.SignRequest) (bls.Signature, error) {
 			return mockSignature{}, nil
 		},
-		pandoraService: mock.NewMockPandoraService(ctrl),
+		pandoraService:    van_mock.NewMockPandoraService(ctrl),
+		beaconChainClient: mock.NewMockBeaconChainClient(ctrl),
 	}
 
 	aggregatedSlotCommitteeIDCache, err := lru.New(int(params.BeaconConfig().MaxCommitteesPerSlot))
@@ -84,6 +86,7 @@ func setup(t *testing.T) (*validator, *mocks, bls.SecretKey, func()) {
 		attLogs:                        make(map[[32]byte]*attSubmitted),
 		aggregatedSlotCommitteeIDCache: aggregatedSlotCommitteeIDCache,
 		pandoraService:                 m.pandoraService,
+		beaconClient:                   m.beaconChainClient,
 	}
 
 	return validator, m, validatorKey, ctrl.Finish
@@ -170,18 +173,6 @@ func TestProposeBlock_ProposeBlockFailed(t *testing.T) {
 		gomock.Any(),
 	).Return(testutil.NewBeaconBlock().Block, nil /*err*/)
 
-	header, headerHash, extraData := testutil.NewPandoraBlock(types.Slot(1), 0)
-	m.pandoraService.EXPECT().GetShardBlockHeader(
-		gomock.Any(), // ctx
-	).Return(header, headerHash, extraData, nil) // nil - error
-
-	m.pandoraService.EXPECT().SubmitShardBlockHeader(
-		gomock.Any(), // ctx
-		gomock.Any(), // blockNonce
-		gomock.Any(), // headerHash
-		gomock.Any(), // sig
-	).Return(true, nil)
-
 	m.validatorClient.EXPECT().DomainData(
 		gomock.Any(), // ctx
 		gomock.Any(), // epoch
@@ -236,23 +227,6 @@ func TestProposeBlock_BlocksDoubleProposal(t *testing.T) {
 		gomock.Any(), // epoch
 	).Times(3).Return(&ethpb.DomainResponse{SignatureDomain: make([]byte, 32)}, nil /*err*/)
 
-	header, headerHash, extraData := testutil.NewPandoraBlock(slot, 0)
-	m.pandoraService.EXPECT().GetShardBlockHeader(
-		gomock.Any(), // ctx
-	).Return(header, headerHash, extraData, nil) // nil - error
-
-	header, headerHash, extraData = testutil.NewPandoraBlock(slot, 0)
-	m.pandoraService.EXPECT().GetShardBlockHeader(
-		gomock.Any(), // ctx
-	).Return(header, headerHash, extraData, nil) // nil - error
-
-	m.pandoraService.EXPECT().SubmitShardBlockHeader(
-		gomock.Any(), // ctx
-		gomock.Any(), // blockNonce
-		gomock.Any(), // headerHash
-		gomock.Any(), // sig
-	).Times(2).Return(true, nil)
-
 	m.validatorClient.EXPECT().ProposeBlock(
 		gomock.Any(), // ctx
 		gomock.AssignableToTypeOf(&ethpb.SignedBeaconBlock{}),
@@ -305,23 +279,6 @@ func TestProposeBlock_BlocksDoubleProposal_After54KEpochs(t *testing.T) {
 		gomock.Any(), // epoch
 	).Times(3).Return(&ethpb.DomainResponse{SignatureDomain: make([]byte, 32)}, nil /*err*/)
 
-	header, headerHash, extraData := testutil.NewPandoraBlock(farFuture, 0)
-	m.pandoraService.EXPECT().GetShardBlockHeader(
-		gomock.Any(), // ctx
-	).Return(header, headerHash, extraData, nil) // nil - error
-
-	header, headerHash, extraData = testutil.NewPandoraBlock(farFuture, 0)
-	m.pandoraService.EXPECT().GetShardBlockHeader(
-		gomock.Any(), // ctx
-	).Return(header, headerHash, extraData, nil) // nil - error
-
-	m.pandoraService.EXPECT().SubmitShardBlockHeader(
-		gomock.Any(), // ctx
-		gomock.Any(), // blockNonce
-		gomock.Any(), // headerHash
-		gomock.Any(), // sig
-	).Times(2).Return(true, nil)
-
 	m.validatorClient.EXPECT().ProposeBlock(
 		gomock.Any(), // ctx
 		gomock.AssignableToTypeOf(&ethpb.SignedBeaconBlock{}),
@@ -358,18 +315,6 @@ func TestProposeBlock_AllowsPastProposals(t *testing.T) {
 		gomock.Any(),
 	).Return(blk.Block, nil /*err*/)
 
-	header, headerHash, extraData := testutil.NewPandoraBlock(farAhead, 0)
-	m.pandoraService.EXPECT().GetShardBlockHeader(
-		gomock.Any(), // ctx
-	).Return(header, headerHash, extraData, nil) // nil - error
-
-	m.pandoraService.EXPECT().SubmitShardBlockHeader(
-		gomock.Any(), // ctx
-		gomock.Any(), // blockNonce
-		gomock.Any(), // headerHash
-		gomock.Any(), // sig
-	).Return(true, nil)
-
 	m.validatorClient.EXPECT().DomainData(
 		gomock.Any(), // ctx
 		gomock.Any(), // epoch
@@ -390,19 +335,6 @@ func TestProposeBlock_AllowsPastProposals(t *testing.T) {
 		gomock.Any(), // ctx
 		gomock.Any(),
 	).Return(blk2.Block, nil /*err*/)
-
-	header, headerHash, extraData = testutil.NewPandoraBlock(past, 0)
-	m.pandoraService.EXPECT().GetShardBlockHeader(
-		gomock.Any(), // ctx
-	).Return(header, headerHash, extraData, nil) // nil - error
-
-	m.pandoraService.EXPECT().SubmitShardBlockHeader(
-		gomock.Any(), // ctx
-		gomock.Any(), // blockNonce
-		gomock.Any(), // headerHash
-		gomock.Any(), // sig
-	).Return(true, nil)
-
 	validator.ProposeBlock(context.Background(), past, pubKey)
 	require.LogsDoNotContain(t, hook, failedPreBlockSignLocalErr)
 }
@@ -431,18 +363,6 @@ func TestProposeBlock_AllowsSameEpoch(t *testing.T) {
 		gomock.Any(),
 	).Return(blk.Block, nil /*err*/)
 
-	header, headerHash, extraData := testutil.NewPandoraBlock(farAhead, 0)
-	m.pandoraService.EXPECT().GetShardBlockHeader(
-		gomock.Any(), // ctx
-	).Return(header, headerHash, extraData, nil) // nil - error
-
-	m.pandoraService.EXPECT().SubmitShardBlockHeader(
-		gomock.Any(), // ctx
-		gomock.Any(), // blockNonce
-		gomock.Any(), // headerHash
-		gomock.Any(), // sig
-	).Return(true, nil)
-
 	m.validatorClient.EXPECT().DomainData(
 		gomock.Any(), // ctx
 		gomock.Any(), // epoch
@@ -463,18 +383,6 @@ func TestProposeBlock_AllowsSameEpoch(t *testing.T) {
 		gomock.Any(),
 	).Return(blk2.Block, nil /*err*/)
 
-	header, headerHash, extraData = testutil.NewPandoraBlock(blk2.Block.Slot, 0)
-	m.pandoraService.EXPECT().GetShardBlockHeader(
-		gomock.Any(), // ctx
-	).Return(header, headerHash, extraData, nil) // nil - error
-
-	m.pandoraService.EXPECT().SubmitShardBlockHeader(
-		gomock.Any(), // ctx
-		gomock.Any(), // blockNonce
-		gomock.Any(), // headerHash
-		gomock.Any(), // sig
-	).Return(true, nil)
-
 	validator.ProposeBlock(context.Background(), farAhead-4, pubKey)
 	require.LogsDoNotContain(t, hook, failedPreBlockSignLocalErr)
 }
@@ -494,18 +402,6 @@ func TestProposeBlock_BroadcastsBlock(t *testing.T) {
 		gomock.Any(), // ctx
 		gomock.Any(),
 	).Return(testutil.NewBeaconBlock().Block, nil /*err*/)
-
-	header, headerHash, extraData := testutil.NewPandoraBlock(types.Slot(1), 0)
-	m.pandoraService.EXPECT().GetShardBlockHeader(
-		gomock.Any(), // ctx
-	).Return(header, headerHash, extraData, nil) // nil - error
-
-	m.pandoraService.EXPECT().SubmitShardBlockHeader(
-		gomock.Any(), // ctx
-		gomock.Any(), // blockNonce
-		gomock.Any(), // headerHash
-		gomock.Any(), // sig
-	).Return(true, nil)
 
 	m.validatorClient.EXPECT().DomainData(
 		gomock.Any(), // ctx
@@ -539,18 +435,6 @@ func TestProposeBlock_BroadcastsBlock_WithGraffiti(t *testing.T) {
 		gomock.Any(), // ctx
 		gomock.Any(),
 	).Return(blk.Block, nil /*err*/)
-
-	header, headerHash, extraData := testutil.NewPandoraBlock(types.Slot(1), 0)
-	m.pandoraService.EXPECT().GetShardBlockHeader(
-		gomock.Any(), // ctx
-	).Return(header, headerHash, extraData, nil) // nil - error
-
-	m.pandoraService.EXPECT().SubmitShardBlockHeader(
-		gomock.Any(), // ctx
-		gomock.Any(), // blockNonce
-		gomock.Any(), // headerHash
-		gomock.Any(), // sig
-	).Return(true, nil)
 
 	m.validatorClient.EXPECT().DomainData(
 		gomock.Any(), // ctx
@@ -779,10 +663,9 @@ func TestSignBlock(t *testing.T) {
 	validator.keyManager = km
 	sig, domain, err := validator.signBlock(ctx, pubKey, 0, blk.Block)
 	require.NoError(t, err, "%x,%x,%v", sig, domain.SignatureDomain, err)
-	require.Equal(t, "a049e1dc723e5a8b5bd14f292973572dffd53785ddb337"+
-		"82f20bf762cbe10ee7b9b4f5ae1ad6ff2089d352403750bed402b94b58469c072536"+
-		"faa9a09a88beaff697404ca028b1c7052b0de37dbcff985dfa500459783370312bdd"+
-		"36d6e0f224", hex.EncodeToString(sig))
+	require.Equal(t, "af4b511de7aeb91114224bd58adb85aa9b5acc317dab7d3a"+
+		"ac4318ec124ade49694357c8f46d7dcdcc373afb5c1d702f196f64e0c6b36195268b72811d"+
+		"8c765edfe03caa37fee735d3e88d8c51afaa8451a48afb8384754bd3bc99e6d0ade914", hex.EncodeToString(sig))
 	// proposer domain
 	require.DeepEqual(t, proposerDomain, domain.SignatureDomain)
 }
@@ -893,148 +776,4 @@ func TestGetGraffitiOrdered_Ok(t *testing.T) {
 		require.NoError(t, err)
 		require.DeepEqual(t, want, got)
 	}
-}
-
-// TestVerifyPandoraHeader_Ok method checks pandora header validation method
-func TestVerifyPandoraShardHeader(t *testing.T) {
-	validator, _, _, finish := setup(t)
-	defer finish()
-
-	blk := testutil.NewBeaconBlock()
-	blk.Block.Slot = 98
-	blk.Block.ProposerIndex = 23
-	epoch := types.Epoch(uint64(blk.Block.Slot) / 32)
-	genesisTime := uint64(time.Now().Unix()) - params.BeaconConfig().SecondsPerSlot*uint64(blk.Block.Slot)
-
-	header, headerHash, extraData := testutil.NewPandoraBlockWithCorrectTime(
-		blk.Block.Slot,
-		uint64(blk.Block.ProposerIndex),
-		genesisTime,
-	)
-
-	// Checks all the validations
-	err := validator.verifyPandoraShardHeader(blk.Block, blk.Block.Slot, epoch, header, headerHash, extraData)
-	require.NoError(t, err, "Should pass without any error")
-
-	// Should get an `errInvalidHeaderHash` error
-	header.Time = uint64(14265167)
-	want := "invalid header hash"
-	err = validator.verifyPandoraShardHeader(blk.Block, blk.Block.Slot, epoch, header, headerHash, extraData)
-	require.ErrorContains(t, want, err, "Should get an errInvalidHeaderHash error")
-
-	// Should get an `errInvalidSlot` error
-	header.Time = uint64(1426516743)
-	want = "invalid slot"
-	header, headerHash, extraData = testutil.NewPandoraBlockWithCorrectTime(
-		90,
-		uint64(blk.Block.ProposerIndex),
-		genesisTime,
-	)
-	epoch = 2
-	err = validator.verifyPandoraShardHeader(blk.Block, blk.Block.Slot, epoch, header, headerHash, extraData)
-	require.ErrorContains(t, want, err, "Should get an errInvalidSlot error")
-
-	//// Should get an `errInvalidEpoch` error
-	epoch = 3
-	want = "invalid epoch"
-	err = validator.verifyPandoraShardHeader(blk.Block, blk.Block.Slot, epoch, header, headerHash, extraData)
-	require.ErrorContains(t, want, err, "Should get an errInvalidEpoch error")
-}
-
-// TestProcessPandoraShardHeader method checks the `processPandoraShardHeader`
-func TestProcessPandoraShardHeader(t *testing.T) {
-	validator, m, _, finish := setup(t)
-	defer finish()
-
-	secretKey, err := bls.SecretKeyFromBytes(bytesutil.PadTo([]byte{1}, 32))
-	require.NoError(t, err, "Failed to generate key from bytes")
-	publicKey := secretKey.PublicKey()
-	var pubKey [48]byte
-	copy(pubKey[:], publicKey.Marshal())
-	km := &mockKeymanager{
-		keysMap: map[[48]byte]bls.SecretKey{
-			pubKey: secretKey,
-		},
-	}
-	validator.keyManager = km
-	blk := testutil.NewBeaconBlock()
-	blk.Block.Slot = 98
-	blk.Block.ProposerIndex = 23
-	epoch := types.Epoch(uint64(blk.Block.Slot) / 32)
-
-	// Check with happy path
-	header, headerHash, extraData := testutil.NewPandoraBlock(blk.Block.Slot, uint64(blk.Block.ProposerIndex))
-	m.pandoraService.EXPECT().GetShardBlockHeader(
-		gomock.Any(), // ctx
-	).Return(header, headerHash, extraData, nil) // nil - error
-
-	m.pandoraService.EXPECT().SubmitShardBlockHeader(
-		gomock.Any(), // ctx
-		gomock.Any(), // blockNonce
-		gomock.Any(), // headerHash
-		gomock.Any(), // sig
-	).Return(true, nil)
-
-	status, err := validator.processPandoraShardHeader(context.Background(), blk.Block, blk.Block.Slot, epoch, pubKey)
-	require.NoError(t, err, "Should sucess")
-	require.Equal(t, true, status, "Pandora shrad processing should be successful")
-
-	// Return rlp decoding error when calls `GetWork` api
-	ErrRlpDecoding := errors.New("rlp: input contains more than one value")
-	m.pandoraService.EXPECT().GetShardBlockHeader(
-		gomock.Any(), // ctx
-	).Return(nil, common.Hash{}, nil, ErrRlpDecoding)
-	_, err = validator.processPandoraShardHeader(context.Background(), blk.Block, blk.Block.Slot, epoch, pubKey)
-	require.ErrorContains(t, "rlp: input contains more than one value", err)
-}
-
-// TestValidator_ProposeBlock_Failed_WhenSubmitShardInfoFails methods checks when `SubmitShardInfo` fails
-func TestValidator_ProposeBlock_Failed_WhenSubmitShardInfoFails(t *testing.T) {
-	hook := logTest.NewGlobal()
-	validator, m, validatorKey, finish := setup(t)
-	defer finish()
-	pubKey := [48]byte{}
-	copy(pubKey[:], validatorKey.PublicKey().Marshal())
-
-	m.validatorClient.EXPECT().DomainData(
-		gomock.Any(), // ctx
-		gomock.Any(), // epoch
-	).Times(2).Return(&ethpb.DomainResponse{SignatureDomain: make([]byte, 32)}, nil /*err*/)
-
-	m.validatorClient.EXPECT().GetBlock(
-		gomock.Any(), // ctx
-		gomock.Any(),
-	).Times(2).Return(testutil.NewBeaconBlock().Block, nil /*err*/)
-
-	header, headerHash, extraData := testutil.NewPandoraBlock(types.Slot(1), 0)
-	m.pandoraService.EXPECT().GetShardBlockHeader(
-		gomock.Any(), // ctx
-	).Return(header, headerHash, extraData, nil) // nil - error
-
-	header, headerHash, extraData = testutil.NewPandoraBlock(types.Slot(1), 0)
-	m.pandoraService.EXPECT().GetShardBlockHeader(
-		gomock.Any(), // ctx
-	).Return(header, headerHash, extraData, nil) // nil - error
-
-	// When `SubmitShardInfo` api returns false status
-	m.pandoraService.EXPECT().SubmitShardBlockHeader(
-		gomock.Any(), // ctx
-		gomock.Any(), // blockNonce
-		gomock.Any(), // headerHash
-		gomock.Any(), // sig
-	).Return(false, nil)
-
-	validator.ProposeBlock(context.Background(), 1, pubKey)
-	require.LogsContain(t, hook, "Failed to process pandora chain shard header")
-
-	// When `SubmitShardInfo` api returns error
-	m.pandoraService.EXPECT().SubmitShardBlockHeader(
-		gomock.Any(), // ctx
-		gomock.Any(), // blockNonce
-		gomock.Any(), // headerHash
-		gomock.Any(), // sig
-	).Return(true, errors.New("Failed to submit shard header"))
-
-	validator.ProposeBlock(context.Background(), 1, pubKey)
-	require.LogsContain(t, hook, "Failed to process pandora chain shard header")
 }

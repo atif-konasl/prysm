@@ -109,7 +109,7 @@ var appFlags = []cli.Flag{
 	cmd.RestoreSourceFileFlag,
 	cmd.RestoreTargetDirFlag,
 	cmd.BoltMMapInitialSizeFlag,
-	flags.Network,
+	cmd.VanguardNetwork,
 	flags.OrcRpcProviderFlag,
 }
 
