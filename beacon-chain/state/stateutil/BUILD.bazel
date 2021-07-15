@@ -1,0 +1,93 @@
+load("@prysm//tools/go:def.bzl", "go_library")
+load("@io_bazel_rules_go//go:def.bzl", "go_test")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "array_root.go",
+        "block_header_root.go",
+        "eth1_root.go",
+        "pending_attestation_root.go",
+        "reference.go",
+        "trie_helpers.go",
+        "validator_map_handler.go",
+        "validator_root.go",
+    ],
+    importpath = "github.com/prysmaticlabs/prysm/beacon-chain/state/stateutil",
+    visibility = [
+        "//beacon-chain:__subpackages__",
+        "//fuzz:__pkg__",
+        "//proto/migration:__subpackages__",
+        "//proto/testing:__subpackages__",
+        "//shared/blockutil:__subpackages__",
+        "//shared/testutil:__subpackages__",
+        "//slasher:__subpackages__",
+        "//tools/blocktree:__pkg__",
+        "//tools/pcli:__pkg__",
+        "//validator/client:__pkg__",
+    ],
+    deps = [
+        "//beacon-chain/core/state/stateutils:go_default_library",
+        "//proto/beacon/p2p/v1:go_default_library",
+        "//shared/bytesutil:go_default_library",
+        "//shared/hashutil:go_default_library",
+        "//shared/htrutils:go_default_library",
+        "//shared/params:go_default_library",
+        "//shared/trieutil:go_default_library",
+        "@com_github_pkg_errors//:go_default_library",
+        "@com_github_prysmaticlabs_eth2_types//:go_default_library",
+        "@com_github_prysmaticlabs_ethereumapis//eth/v1alpha1:go_default_library",
+    ],
+)
+
+go_test(
+    name = "go_default_test",
+    srcs = [
+        "benchmark_test.go",
+        "reference_bench_test.go",
+        "state_root_test.go",
+        "stateutil_test.go",
+        "trie_helpers_test.go",
+        "validator_root_test.go",
+    ],
+    embed = [":go_default_library"],
+    deps = [
+        "//beacon-chain/state/stateV0:go_default_library",
+        "//proto/beacon/p2p/v1:go_default_library",
+        "//shared/bytesutil:go_default_library",
+        "//shared/featureconfig:go_default_library",
+        "//shared/hashutil:go_default_library",
+        "//shared/htrutils:go_default_library",
+        "//shared/interop:go_default_library",
+        "//shared/params:go_default_library",
+        "//shared/testutil:go_default_library",
+        "//shared/testutil/assert:go_default_library",
+        "//shared/testutil/require:go_default_library",
+        "@com_github_prysmaticlabs_eth2_types//:go_default_library",
+        "@com_github_prysmaticlabs_ethereumapis//eth/v1alpha1:go_default_library",
+    ],
+)
+
+go_test(
+    name = "go_benchmark_test",
+    size = "medium",
+    srcs = ["benchmark_test.go"],
+    args = [
+        "-test.bench=.",
+        "-test.benchmem",
+        "-test.v",
+    ],
+    local = True,
+    tags = [
+        "benchmark",
+        "no-cache",
+    ],
+    deps = [
+        "//beacon-chain/state/stateutil:go_default_library",
+        "//shared/hashutil:go_default_library",
+        "//shared/htrutils:go_default_library",
+        "//shared/testutil:go_default_library",
+        "//shared/testutil/require:go_default_library",
+        "@com_github_prysmaticlabs_ethereumapis//eth/v1alpha1:go_default_library",
+    ],
+)
