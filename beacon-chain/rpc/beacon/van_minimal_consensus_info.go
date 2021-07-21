@@ -8,7 +8,7 @@ import (
 	types "github.com/prysmaticlabs/eth2-types"
 	ethpb "github.com/prysmaticlabs/ethereumapis/eth/v1alpha1"
 	"github.com/prysmaticlabs/prysm/beacon-chain/core/helpers"
-	"github.com/prysmaticlabs/prysm/beacon-chain/state"
+	iface "github.com/prysmaticlabs/prysm/beacon-chain/state/interface"
 	"github.com/prysmaticlabs/prysm/shared/params"
 	"github.com/prysmaticlabs/prysm/shared/slotutil"
 	"google.golang.org/grpc/codes"
@@ -237,7 +237,7 @@ func (bs *Server) getProposerListForEpoch(
 ) (*ethpb.ValidatorAssignments, error) {
 	var (
 		res         []*ethpb.ValidatorAssignments_CommitteeAssignment
-		latestState *state.BeaconState
+		latestState iface.BeaconState
 	)
 	startSlot, err := helpers.StartSlot(requestedEpoch)
 
@@ -253,7 +253,7 @@ func (bs *Server) getProposerListForEpoch(
 			codes.Internal, "Could not retrieve endSlot for epoch %d: %v", requestedEpoch, err)
 	}
 
-	states, err := bs.BeaconDB.HighestSlotStatesBelow(bs.Ctx, endSlot)
+	states, err := bs.BeaconDB.VanHighestSlotStatesBelow(bs.Ctx, endSlot)
 
 	if nil != bs.Ctx.Err() {
 		log.Infof("[VAN_SUB] getProposerListForEpoch bs.ctx err = %s", bs.Ctx.Err().Error())

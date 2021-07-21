@@ -46,7 +46,7 @@ type Server struct {
 	ChainStartChan              chan time.Time
 	ReceivedAttestationsBuffer  chan *ethpb.Attestation
 	CollectedAttestationsBuffer chan []*ethpb.Attestation
-	StateGen                    *stategen.State
+	StateGen                    stategen.StateManager
 	SyncChecker                 sync.Checker
 
 	// Vanguard un-confirmed cached block fetcher

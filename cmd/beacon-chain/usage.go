@@ -121,6 +121,7 @@ var appHelpFlagGroups = []flagGroup{
 			flags.Eth1HeaderReqLimit,
 			flags.Network,
 			flags.OrcRpcProviderFlag,
+			flags.GenesisStatePath,
 		},
 	},
 	{
